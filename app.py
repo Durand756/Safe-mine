@@ -23,8 +23,8 @@ PORT = int(os.getenv('PORT', 8080))  # Port fourni par Render
 WEBHOOK_URL = os.getenv('WEBHOOK_URL', '')  # URL webhook sur Render
 
 # ⚠️ SIMULATION de canal obligatoire (technique d'arnaque courante)
-FAKE_CHANNEL_ID = "@DEMO_CHANNEL_EDUCATIONAL"  # Canal factice pour simulation
-FAKE_CHANNEL_LINK = "https://t.me/DEMO_CHANNEL_EDUCATIONAL"  # Lien factice
+FAKE_CHANNEL_ID = "@SafeMine_Wallet"  # Canal factice pour simulation
+FAKE_CHANNEL_LINK = "https://t.me/SafeMine_Wallet"  # Lien factice
 
 # Fichier JSON pour stocker les données utilisateurs
 DATA_FILE = 'user_data.json'
