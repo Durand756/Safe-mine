@@ -334,7 +334,7 @@ async def referral_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 • 25 parrains = Retrait minimum à 50$
 
 🔗 Votre lien de parrainage :
-`https://t.me/SafeMine_Wallet_bot?start=ref_{user_id}`
+`https://t.me/CryptoMinerBot?start=ref_{user_id}`
 
 📢 Message type à partager :
 "💰 Je gagne de l'argent facilement avec ce bot crypto ! 
@@ -450,7 +450,7 @@ Continuez à inviter pour débloquer les statuts VIP !
 📋 LIEN DE PARRAINAGE COPIÉ
 
 Votre lien unique :
-`https://t.me/SafeMine_Wallet_bot?start=ref_{user_id}`
+`https://t.me/CryptoMinerBot?start=ref_{user_id}`
 
 Partagez ce lien pour gagner :
 • 2$ par inscription
@@ -546,15 +546,13 @@ def create_app():
     app.router.add_get('/', health_check)
     return app
 
-def main():
-    """Fonction principale optimisée pour Render"""
+async def init_bot():
+    """Initialise le bot Telegram"""
     global application
-    
-    logger.info("🚀 Démarrage du bot CryptoMiner Pro sur Render")
     
     if not BOT_TOKEN:
         logger.error("❌ BOT_TOKEN manquant dans les variables d'environnement")
-        return
+        return None
     
     # Créer l'application Telegram
     application = Application.builder().token(BOT_TOKEN).build()
@@ -567,31 +565,48 @@ def main():
     application.add_handler(CommandHandler("stats", stats_command))
     application.add_handler(CallbackQueryHandler(button_callback))
     
+    # Initialiser l'application
+    await application.initialize()
+    
+    if WEBHOOK_URL:
+        webhook_url = f"{WEBHOOK_URL}/webhook"
+        await application.bot.set_webhook(url=webhook_url)
+        logger.info(f"✅ Webhook configuré : {webhook_url}")
+    
+    return application
+
+def create_app():
+    """Crée l'application web avec initialisation du bot"""
+    app = web.Application()
+    
+    async def startup(app):
+        """Initialisation au démarrage"""
+        logger.info("🚀 Initialisation du bot CryptoMiner Pro")
+        await init_bot()
+    
+    app.on_startup.append(startup)
+    app.router.add_post('/webhook', webhook_handler)
+    app.router.add_get('/health', health_check)
+    app.router.add_get('/', health_check)
+    return app
+
+# Pour gunicorn
+app = create_app()
+
+def main():
+    """Fonction principale pour démarrage direct"""
     if WEBHOOK_URL:
         # Mode webhook pour Render
         logger.info(f"🌐 Mode webhook activé : {WEBHOOK_URL}")
-        
-        async def init_webhook():
-            await application.initialize()
-            webhook_url = f"{WEBHOOK_URL}/webhook"
-            await application.bot.set_webhook(url=webhook_url)
-            logger.info(f"✅ Webhook configuré : {webhook_url}")
-        
-        # Créer l'application web
-        app = create_app()
-        
-        # Initialiser le webhook
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        loop.run_until_complete(init_webhook())
-        
-        # Démarrer le serveur web
-        logger.info(f"🚀 Serveur démarré sur le port {PORT}")
-        web.run_app(app, host='0.0.0.0', port=PORT)
+        web.run_app(create_app(), host='0.0.0.0', port=PORT)
     else:
         # Mode polling pour développement local
         logger.info("🤖 Bot démarré en mode polling")
-        application.run_polling()
+        async def run_polling():
+            await init_bot()
+            await application.run_polling()
+        
+        asyncio.run(run_polling())
 
 if __name__ == "__main__":
     main()
